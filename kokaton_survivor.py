@@ -5,10 +5,14 @@ import sys
 import time
 import pygame as pg
 from pygame.locals import *
+import random
+import math
+import pygame as pg
 
 WIDTH = 1100  # ゲームウィンドウの幅
 HEIGHT = 650  # ゲームウィンドウの高さ
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 
 
 def check_bound(obj_rct: pg.Rect) -> tuple[bool, bool]:
@@ -244,6 +248,8 @@ class Explosion(pg.sprite.Sprite):
         self.image = self.imgs[0]
         self.rect = self.image.get_rect(center=obj.rect.center)
         self.life = life
+        self.image = pg.transform.rotozoom(pg.image.load("fig/images.jpg"), 0, 0.3)
+        self.rect = self.image.get_rect()
 
     def update(self):
         """
@@ -321,6 +327,8 @@ class Enemy(pg.sprite.Sprite):
         super().__init__()
         self.image = pg.transform.rotozoom(pg.image.load(f"fig/alien1.png"), 0, 0.5)
         self.rect = self.image.get_rect()
+        self.image2 = pg.transform.rotozoom(pg.image.load("fig/images.jpg"), 0, 0.3)
+        self.rect2 = self.image.get_rect()
         
         # 指定された方向数に基づいてランダムな角度を選択
         angle = random.randint(0, spawn_directions-1) * (360/spawn_directions)
@@ -357,6 +365,77 @@ class Score:
     def update(self, screen: pg.Surface):
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         screen.blit(self.image, self.rect)
+import random
+import math
+import pygame as pg
+
+class ClownEnemy(pg.sprite.Sprite):
+    """ピエロの敵クラス"""
+    def __init__(self, player: "Bird", spawn_directions: int):
+        super().__init__()
+        # 基本の画像設定
+        self.image = pg.transform.rotozoom(pg.image.load("fig/images.jpg"), 0, 0.3)
+        self.rect = self.image.get_rect()
+        
+        # 出現位置の設定（画面外から確実に出現するように修正）
+        angle = random.randint(0, spawn_directions-1) * (360/spawn_directions)
+        angle_rad = math.radians(angle)
+        radius = 100  # 画面外からの距離を調整
+        
+        # 画面の中心からの位置を計算
+        spawn_x = WIDTH/2 + math.cos(angle_rad) * radius
+        spawn_y = HEIGHT/2 + math.sin(angle_rad) * radius
+        
+        # 画面外になるように調整
+        if spawn_x < WIDTH/2:
+            spawn_x = -50
+        elif spawn_x >= WIDTH/2:
+            spawn_x = WIDTH + 50
+            
+        if spawn_y < HEIGHT/2:
+            spawn_y = -50
+        elif spawn_y >= HEIGHT/2:
+            spawn_y = HEIGHT + 50
+            
+        self.rect.center = (spawn_x, spawn_y)
+        self.player = player
+        self.base_speed = 2
+        self.speed = self.base_speed
+        self.points = 20
+        
+        # 移動用の変数
+        self.vx = 0
+        self.vy = 0
+        self.movement_phase = 0
+
+    def update(self):
+        """敵の更新処理"""
+        # プレイヤーへの方向を計算
+        target_x = self.player.rect.centerx - self.rect.centerx
+        target_y = self.player.rect.centery - self.rect.centery
+        
+        # 方向の正規化
+        distance = math.sqrt(target_x**2 + target_y**2)
+        if distance != 0:
+            self.vx = (target_x / distance) * self.speed
+            self.vy = (target_y / distance) * self.speed
+            
+        # ジグザグ動作の追加
+        self.movement_phase += 0.1
+        perpendicular_x = -self.vy  # 垂直方向のベクトル
+        perpendicular_y = self.vx
+        zigzag = math.sin(self.movement_phase) * 2  # ジグザグの振れ幅を調整
+        
+        # 最終的な移動を適用
+        self.rect.x += self.vx + perpendicular_x * zigzag
+        self.rect.y += self.vy + perpendicular_y * zigzag
+        
+       
+
+# メインゲームループで使用する敵生成関数
+def create_enemy(player: "Bird", spawn_directions: int) -> pg.sprite.Sprite:
+    """敵を生成する関数"""
+    return ClownEnemy(player, spawn_directions)
 
 
 
@@ -381,6 +460,9 @@ def main():
     while True:
         key_lst = pg.key.get_pressed()
         for event in pg.event.get():
+            if tmr%70 == 0:  # 出現頻度を200から100に変更
+                new_enemy = create_enemy(bird, spawn_directions)
+                emys.add(new_enemy)
             if event.type == pg.QUIT:
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_r and score.value >= 200:
