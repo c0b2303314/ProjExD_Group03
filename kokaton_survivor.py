@@ -169,6 +169,41 @@ class Bomb(pg.sprite.Sprite):
             self.kill()
 
 
+class AutoBeam:
+    """
+    8方向自動発射ビームに関するクラス
+    """
+    def __init__(self, bird: Bird, beam_class):
+        """
+        引数1 bird：ビームを放つこうかとん
+        引数2 beam_class: Beamクラスの参照
+        """
+        self.bird = bird
+        self.beam_class = beam_class  # Beamクラスを保持
+        self.num = 8  # 8方向
+        self.cooldown = 0  # クールダウンカウンター
+        self.cooldown_time = 30  # 発射間隔（フレーム数）
+    
+    def gen_beams(self) -> list:
+        """
+        8方向のビームを生成する
+        戻り値：Beamインスタンスのリスト
+        """
+        beams = []
+        for i in range(self.num):
+            angle = i * (360 / self.num)  # 360度を8等分
+            beams.append(self.beam_class(self.bird, angle))
+        return beams
+    
+    def update(self, beams: pg.sprite.Group):
+        """
+        一定間隔で自動的にビームを発射する
+        引数 beams：ビームグループ
+        """
+        self.cooldown -= 1
+        if self.cooldown <= 0:
+            beams.add(*self.gen_beams())
+            self.cooldown = self.cooldown_time
 class Beam(pg.sprite.Sprite):
     """
     ビームに関するクラス
@@ -367,6 +402,7 @@ def main():
     score = Score()
 
     bird = Bird(3, (900, 400))
+    auto_beam = AutoBeam(bird,Beam)  # AutoBeamインスタンスを作成
     bombs = pg.sprite.Group()
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
@@ -396,6 +432,9 @@ def main():
                     # 通常の単発ビーム
                     beams.add(Beam(bird))
         screen.blit(bg_img, [0, 0])
+
+        # 自動ビーム発射の更新
+        auto_beam.update(beams)
 
         # 5秒ごとに敵の出現数と方向を増やす
         current_time = tmr // 50  # フレーム数を秒数に変換
