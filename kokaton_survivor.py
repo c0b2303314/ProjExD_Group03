@@ -120,10 +120,6 @@ class Bird(pg.sprite.Sprite):
             if key_lst[k]:
                 sum_mv[0] += mv[0]
                 sum_mv[1] += mv[1]
-                if key_lst[pg.K_LSHIFT]:
-                    self.speed = 20
-                else:
-                    self.speed = 10
         self.rect.move_ip(self.speed*sum_mv[0], self.speed*sum_mv[1])
         if check_bound(self.rect) != (True, True):
             self.rect.move_ip(-self.speed*sum_mv[0], -self.speed*sum_mv[1])
@@ -173,17 +169,18 @@ class Beam(pg.sprite.Sprite):
     """
     ビームに関するクラス
     """
-    def __init__(self, bird: Bird,angle0:float=0):  # angleのパラメータを追加
+    def __init__(self, bird: Bird, xbeam: float, angle0:float=0):  # angleのパラメータを追加
         """
         ビーム画像Surfaceを生成する
         引数1 bird：ビームを放つこうかとん
-        引数2 angle0：追加の回転角度　（デフォルト：0）
+        引数2 xbeam：ビーム倍率
+        引数3 angle0：追加の回転角度　（デフォルト：0）
         """
         super().__init__()
         self.vx, self.vy = bird.dire
         angle = math.degrees(math.atan2(-self.vy, self.vx))
         angle += angle0  # 追加の回転角度を適用
-        self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, 2.0)
+        self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, xbeam)
         self.vx = math.cos(math.radians(angle))
         self.vy = -math.sin(math.radians(angle))
         self.rect = self.image.get_rect()
@@ -197,7 +194,9 @@ class Beam(pg.sprite.Sprite):
         引数 screen：画面Surface
         """
         self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
-        if check_bound(self.rect) != (True, True):
+        # if check_bound(self.rect) != (True, True):
+        #     self.kill()
+        if (self.rect.centerx <= 0 or self.rect.centerx >= WIDTH) and (self.rect.centery <= 0 or self.rect.centery >= HEIGHT):  # 画面外でビームが消えるようにする
             self.kill()
 
 
@@ -213,7 +212,7 @@ class NeoBeam:
         self.bird = bird
         self.num = num
     
-    def gen_beams(self) -> list[Beam]:
+    def gen_beams(self, xbeam: float) -> list[Beam]:
         """
         複数方向のビームを生成する
         戻り値：Beamインスタンスのリスト
@@ -224,7 +223,7 @@ class NeoBeam:
         
         for i in range(self.num):
             angle = -50 + (i * angle_step)  # -50度から+50度までの角度を計算
-            beams.append(Beam(self.bird, angle))
+            beams.append(Beam(self.bird, xbeam, angle))
         
         return beams
 
@@ -255,66 +254,6 @@ class Explosion(pg.sprite.Sprite):
         if self.life < 0:
             self.kill()
 
-
-# class Enemy(pg.sprite.Sprite):
-#     """
-#     敵機に関するクラス
-#     """
-#     imgs = [pg.image.load(f"fig/alien{i}.png") for i in range(1, 4)]
-    
-#     def __init__(self):
-#         super().__init__()
-#         self.image = random.choice(__class__.imgs)
-#         self.rect = self.image.get_rect()
-#         self.dir = random.randint(1, 4)
-#         if self.dir == 1:  # 東に出現
-#             self.rect.center = WIDTH, random.randint(0, HEIGHT)
-#             self.vx, self.vy = -6, 0
-#             self.bound = random.randint(WIDTH//2, WIDTH-50)  # 停止位置
-#         elif self.dir == 2:  # 西に出現
-#             self.rect.center = 0, random.randint(0, HEIGHT)
-#             self.vx, self.vy = +6, 0
-#             self.bound = random.randint(0, WIDTH//2)  # 停止位置
-#         elif self.dir == 3:  # 南に出現
-#             self.rect.center = random.randint(0, WIDTH), HEIGHT
-#             self.vx, self.vy = 0, -6
-#             self.bound = random.randint(HEIGHT//2, HEIGHT-50)  # 停止位置
-#         elif self.dir == 4:  # 北に出現
-#             self.rect.center = random.randint(0, WIDTH), 0
-#             self.vx, self.vy = 0, +6
-#             self.bound = random.randint(50, HEIGHT//2)  # 停止位置
-#         self.state = "down"  # 降下状態or停止状態
-#         self.interval = random.randint(50, 300)  # 爆弾投下インターバル
-
-#     def update(self):
-#         """
-#         敵機を速度ベクトルself.vyに基づき移動（降下）させる
-#         ランダムに決めた停止位置_boundまで降下したら，_stateを停止状態に変更する
-#         引数 screen：画面Surface
-#         """
-#         if self.dir == 1:
-#             if self.rect.centerx < self.bound:
-#                 self.vx = 0
-#                 self.vy = 0
-#                 self.state = "stop"
-#         if self.dir == 2:
-#             if self.rect.centerx > self.bound:
-#                 self.vx = 0
-#                 self.vy = 0
-#                 self.state = "stop"
-#         if self.dir == 3:
-#             if self.rect.centery < self.bound:
-#                 self.vx = 0
-#                 self.vy = 0
-#                 self.state = "stop"
-#         if self.dir == 4:
-#             if self.rect.centery > self.bound:
-#                 self.vx = 0
-#                 self.vy = 0
-#                 self.state = "stop"
-
-
-#         self.rect.move_ip(self.vx, self.vy)
 
 class Enemy(pg.sprite.Sprite):
     def __init__(self, player: Bird, spawn_directions: int):
@@ -358,6 +297,20 @@ class Score:
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         screen.blit(self.image, self.rect)
 
+class Item(pg.sprite.Sprite):
+    """
+    強化アイテムに関するクラス
+    """
+    def __init__(self, screen: pg.Surface):
+        """
+        強化アイテムSurfaceを生成する
+        """
+        super().__init__()
+        self.image = pg.Surface((20, 20))
+        pg.draw.circle(self.image, (255, 200, 200), (10, 10), 10)
+        self.rect = self.image.get_rect()
+        self.rect.center = random.randint(50, WIDTH-50), random.randint(50, HEIGHT-50)
+        
 
 
 def main():
@@ -372,12 +325,14 @@ def main():
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
     gravities = pg.sprite.Group()
+    items = pg.sprite.Group()
 
     tmr = 0
     clock = pg.time.Clock()
     spawn_directions = 4  # 初期の出現方向数
     enemies_per_spawn = 1  # 初期の出現数
     last_enemy_increase = 0  # 最後に敵の数を増やした時間
+    xbeam = 1.0  # 初期のビーム倍率
     while True:
         key_lst = pg.key.get_pressed()
         for event in pg.event.get():
@@ -391,10 +346,10 @@ def main():
                 if key_lst[pg.K_LSHIFT]:  # 左シフトキーが押されている場合
                     # 複数方向ビームを発射
                     neo_beam = NeoBeam(bird, 5)  # 5本のビームを発射
-                    beams.add(*neo_beam.gen_beams())
+                    beams.add(*neo_beam.gen_beams(xbeam))
                 else:
                     # 通常の単発ビーム
-                    beams.add(Beam(bird))
+                    beams.add(Beam(bird, xbeam))
         screen.blit(bg_img, [0, 0])
 
         # 5秒ごとに敵の出現数と方向を増やす
@@ -406,6 +361,10 @@ def main():
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
             emys.add(Enemy(bird, spawn_directions))
+
+        if tmr != 0:
+            if tmr%400 == 0:  # 400フレームに1回、強化アイテムを出現させる
+                items.add(Item(screen))
 
         # for emy in emys:
         #     if emy.state == "stop" and tmr%emy.interval == 0:
@@ -432,6 +391,12 @@ def main():
             exps.add(Explosion(emy, 100))  # 爆発エフェクト
             score.value += 10  # 10点アップ
 
+        for item in pg.sprite.spritecollide(bird, items, True):  # こうかとんと強化アイテムがぶつかったら
+            xbeam += 0.2  # ビームの倍率をあげる
+            if bird.speed <= 20:
+                bird.speed *= 1.1 
+            item.kill()  # 強化アイテムを削除する
+
         if len(pg.sprite.spritecollide(bird, bombs, True)) != 0:
             bird.change_img(8, screen) # こうかとん悲しみエフェクト
             score.update(screen)
@@ -450,6 +415,7 @@ def main():
         exps.draw(screen)
         gravities.update()
         gravities.draw(screen)
+        items.draw(screen)  # 強化アイテム画面に描画
         score.update(screen)
         pg.display.update()
         tmr += 1
