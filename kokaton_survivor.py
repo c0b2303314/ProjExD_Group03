@@ -62,6 +62,22 @@ class Gravity(pg.sprite.Sprite):
             self.kill()
 
 
+class GravityItem(pg.sprite.Sprite):
+    """
+    重力場発動アイテムに関するクラス
+    """
+    def __init__(self, screen: pg.Surface):
+        """
+        重力場発動アイテムを生成する
+        """
+        super().__init__()
+        self.image = pg.Surface((30, 30))
+        pg.draw.circle(self.image, (100, 100, 100), (15, 15), 15)
+        self.image.set_colorkey((0, 0, 0)) 
+        self.rect = self.image.get_rect()
+        self.rect.center = random.randint(50, WIDTH-50), random.randint(50, HEIGHT-50)
+
+
 class Bird(pg.sprite.Sprite):
     """
     ゲームキャラクター（こうかとん）に関するクラス
@@ -308,6 +324,7 @@ class Item(pg.sprite.Sprite):
         super().__init__()
         self.image = pg.Surface((20, 20))
         pg.draw.circle(self.image, (255, 200, 200), (10, 10), 10)
+        self.image.set_colorkey((0, 0, 0))
         self.rect = self.image.get_rect()
         self.rect.center = random.randint(50, WIDTH-50), random.randint(50, HEIGHT-50)
         
@@ -326,6 +343,7 @@ def main():
     emys = pg.sprite.Group()
     gravities = pg.sprite.Group()
     items = pg.sprite.Group()
+    gravityitems = pg.sprite.Group()
 
     tmr = 0
     clock = pg.time.Clock()
@@ -338,9 +356,9 @@ def main():
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return 0
-            if event.type == pg.KEYDOWN and event.key == pg.K_r and score.value >= 200:
-                gravities.add(Gravity(400))  # 重力場を発動
-                score.value -= 200  # スコアを消費
+            # if event.type == pg.KEYDOWN and event.key == pg.K_r and score.value >= 200:
+            #     gravities.add(Gravity(400))  # 重力場を発動
+            #     score.value -= 200  # スコアを消費
 
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 if key_lst[pg.K_LSHIFT]:  # 左シフトキーが押されている場合
@@ -365,6 +383,10 @@ def main():
         if tmr != 0:
             if tmr%400 == 0:  # 400フレームに1回、強化アイテムを出現させる
                 items.add(Item(screen))
+
+        if tmr != 0:
+            if tmr%1200 == 0:  # 1200フレームに1回、重力場発動アイテムを出現させる
+                gravityitems.add(GravityItem(screen))
 
         # for emy in emys:
         #     if emy.state == "stop" and tmr%emy.interval == 0:
@@ -397,6 +419,10 @@ def main():
                 bird.speed *= 1.1 
             item.kill()  # 強化アイテムを削除する
 
+        for gitem in pg.sprite.spritecollide(bird, gravityitems, True):  # こうかとんと重力場発動アイテムがぶつかったら
+            gravities.add(Gravity(400))
+            gitem.kill()  # 重力場発動アイテムを削除する
+
         if len(pg.sprite.spritecollide(bird, bombs, True)) != 0:
             bird.change_img(8, screen) # こうかとん悲しみエフェクト
             score.update(screen)
@@ -415,7 +441,8 @@ def main():
         exps.draw(screen)
         gravities.update()
         gravities.draw(screen)
-        items.draw(screen)  # 強化アイテム画面に描画
+        items.draw(screen)  # 強化アイテムを画面に描画
+        gravityitems.draw(screen)  # 重力場発動アイテムを画面に描画
         score.update(screen)
         pg.display.update()
         tmr += 1
