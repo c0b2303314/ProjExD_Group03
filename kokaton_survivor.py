@@ -71,9 +71,10 @@ class GravityItem(pg.sprite.Sprite):
         重力場発動アイテムを生成する
         """
         super().__init__()
-        self.image = pg.Surface((30, 30))
-        pg.draw.circle(self.image, (100, 100, 100), (15, 15), 15)
-        self.image.set_colorkey((0, 0, 0)) 
+        # self.image = pg.Surface((30, 30))
+        # pg.draw.circle(self.image, (100, 100, 100), (15, 15), 15)
+        # self.image.set_colorkey((0, 0, 0)) 
+        self.image = pg.transform.rotozoom(pg.image.load(f"fig/bakudan.png"), 0, 0.15)
         self.rect = self.image.get_rect()
         self.rect.center = random.randint(50, WIDTH-50), random.randint(50, HEIGHT-50)
 
@@ -322,9 +323,10 @@ class Item(pg.sprite.Sprite):
         強化アイテムSurfaceを生成する
         """
         super().__init__()
-        self.image = pg.Surface((20, 20))
-        pg.draw.circle(self.image, (255, 200, 200), (10, 10), 10)
-        self.image.set_colorkey((0, 0, 0))
+        # self.image = pg.Surface((20, 20))
+        # pg.draw.circle(self.image, (255, 200, 200), (10, 10), 10)
+        # self.image.set_colorkey((0, 0, 0))
+        self.image = pg.transform.rotozoom(pg.image.load(f"fig/kouseki_colorful.png"), 0, 0.1)
         self.rect = self.image.get_rect()
         self.rect.center = random.randint(50, WIDTH-50), random.randint(50, HEIGHT-50)
         
