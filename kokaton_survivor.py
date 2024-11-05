@@ -181,41 +181,73 @@ class Bomb(pg.sprite.Sprite):
         if check_bound(self.rect) != (True, True):
             self.kill()
 
+    def update(self):
+        self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
+        if check_bound(self.rect) != (True, True):
+            self.kill()
 
 class Beam(pg.sprite.Sprite):
     """
-    ビームに関するクラス
+    追尾機能付きビームに関するクラス
     """
-    def __init__(self, bird: Bird, xbeam: float, angle0:float=0):  # angleのパラメータを追加
+    def __init__(self, bird: Bird, xbeam: float,  enemies: pg.sprite.Group):
         """
-        ビーム画像Surfaceを生成する
+        ビームを生成する
         引数1 bird：ビームを放つこうかとん
         引数2 xbeam：ビーム倍率
-        引数3 angle0：追加の回転角度　（デフォルト：0）
+        引数3 enemies：敵機グループ
         """
         super().__init__()
-        self.vx, self.vy = bird.dire
-        angle = math.degrees(math.atan2(-self.vy, self.vx))
-        angle += angle0  # 追加の回転角度を適用
-        self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, xbeam)
-        self.vx = math.cos(math.radians(angle))
-        self.vy = -math.sin(math.radians(angle))
+        self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), 0, 2.0)
         self.rect = self.image.get_rect()
-        self.rect.centery = bird.rect.centery+bird.rect.height*self.vy
-        self.rect.centerx = bird.rect.centerx+bird.rect.width*self.vx
+        self.rect.center = bird.rect.center
         self.speed = 10
+        
+        # 最も近い敵を特定
+        self.target = self._find_nearest_enemy(bird, enemies)
+        # 初期の移動方向を設定
+        self.vx, self.vy = bird.dire if self.target is None else calc_orientation(self.rect, self.target.rect)
+        
+        # 角度の計算と画像の回転
+        angle = math.degrees(math.atan2(-self.vy, self.vx))
+        self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, xbeam)
 
-    def update(self):
+    def _find_nearest_enemy(self, bird: Bird, enemies: pg.sprite.Group) -> pg.sprite.Sprite:
         """
-        ビームを速度ベクトルself.vx, self.vyに基づき移動させる
-        引数 screen：画面Surface
+        最も近い敵を見つける
+        引数1 bird：こうかとん
+        引数2 enemies：敵機グループ
+        戻り値：最も近い敵のSprite（敵がいない場合はNone）
         """
-        self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
+        nearest_enemy = None
+        min_distance = float('inf')
+        
+        for enemy in enemies:
+            distance = math.hypot(bird.rect.centerx - enemy.rect.centerx,
+                                bird.rect.centery - enemy.rect.centery)
+            if distance < min_distance:
+                min_distance = distance
+                nearest_enemy = enemy
+        
+        return nearest_enemy
+
+    def update(self, xbeam:float):
+        """
+        ビームを移動させる
+        敵が生存している場合は追尾する
+        """
+        if self.target and self.target.alive():
+            # ターゲットの方向を再計算
+            self.vx, self.vy = calc_orientation(self.rect, self.target.rect)
+            # 画像の角度を更新
+            angle = math.degrees(math.atan2(-self.vy, self.vx))
+            self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, xbeam)
+        
+        self.rect.move_ip(self.speed * self.vx, self.speed * self.vy)
         # if check_bound(self.rect) != (True, True):
         #     self.kill()
         if (self.rect.centerx <= 0 or self.rect.centerx >= WIDTH) and (self.rect.centery <= 0 or self.rect.centery >= HEIGHT):  # 画面外でビームが消えるようにする
             self.kill()
-
 
 class NeoBeam:
     """
@@ -348,6 +380,7 @@ def main():
     gravityitems = pg.sprite.Group()
 
     tmr = 0
+    beam_timer = 0  # 追加: ビーム発射のタイマー
     clock = pg.time.Clock()
     spawn_directions = 4  # 初期の出現方向数
     enemies_per_spawn = 1  # 初期の出現数
@@ -362,14 +395,12 @@ def main():
             #     gravities.add(Gravity(400))  # 重力場を発動
             #     score.value -= 200  # スコアを消費
 
-            if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
-                if key_lst[pg.K_LSHIFT]:  # 左シフトキーが押されている場合
-                    # 複数方向ビームを発射
-                    neo_beam = NeoBeam(bird, 5)  # 5本のビームを発射
-                    beams.add(*neo_beam.gen_beams(xbeam))
-                else:
-                    # 通常の単発ビーム
-                    beams.add(Beam(bird, xbeam))
+        # 定期的に自動発射
+        beam_timer += 1
+        if beam_timer % 30 == 0:  # 30フレームごとにビームを自動発射
+            beams.add(Beam(bird, xbeam,emys))  # emysグループを渡す
+            beam_timer = 0  # タイマーをリセット
+
         screen.blit(bg_img, [0, 0])
 
         # 5秒ごとに敵の出現数と方向を増やす
@@ -379,7 +410,7 @@ def main():
             spawn_directions += 2   # 方向を2増やす
             last_enemy_increase = current_time
 
-        if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
+        if tmr % 200 == 0:  # 200フレームに1回、敵機を出現させる
             emys.add(Enemy(bird, spawn_directions))
 
         if tmr != 0:
@@ -433,10 +464,10 @@ def main():
             return
 
         bird.update(key_lst, screen)
-        beams.update()
+        beams.update(xbeam)
         beams.draw(screen)
         emys.update()
-        emys.draw(screen, bird)
+        emys.draw(screen)
         bombs.update()
         bombs.draw(screen)
         exps.update()
