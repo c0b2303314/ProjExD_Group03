@@ -100,6 +100,10 @@ class Bird(pg.sprite.Sprite):
         self.state = "normal"  # 追加: 通常状態
         self.hyper_life = 0    # 追加: 発動時間
 
+        self.skills = []  # スキルの格納リスト(手持ちのスキル)
+        self.wait_skill = False  # スキル選択画面の表示について
+
+
     def change_img(self, num: int, screen: pg.Surface):
         """
         こうかとん画像を切り替え，画面に転送する
@@ -256,65 +260,80 @@ class Explosion(pg.sprite.Sprite):
             self.kill()
 
 
-# class Enemy(pg.sprite.Sprite):
-#     """
-#     敵機に関するクラス
-#     """
-#     imgs = [pg.image.load(f"fig/alien{i}.png") for i in range(1, 4)]
-    
-#     def __init__(self):
-#         super().__init__()
-#         self.image = random.choice(__class__.imgs)
-#         self.rect = self.image.get_rect()
-#         self.dir = random.randint(1, 4)
-#         if self.dir == 1:  # 東に出現
-#             self.rect.center = WIDTH, random.randint(0, HEIGHT)
-#             self.vx, self.vy = -6, 0
-#             self.bound = random.randint(WIDTH//2, WIDTH-50)  # 停止位置
-#         elif self.dir == 2:  # 西に出現
-#             self.rect.center = 0, random.randint(0, HEIGHT)
-#             self.vx, self.vy = +6, 0
-#             self.bound = random.randint(0, WIDTH//2)  # 停止位置
-#         elif self.dir == 3:  # 南に出現
-#             self.rect.center = random.randint(0, WIDTH), HEIGHT
-#             self.vx, self.vy = 0, -6
-#             self.bound = random.randint(HEIGHT//2, HEIGHT-50)  # 停止位置
-#         elif self.dir == 4:  # 北に出現
-#             self.rect.center = random.randint(0, WIDTH), 0
-#             self.vx, self.vy = 0, +6
-#             self.bound = random.randint(50, HEIGHT//2)  # 停止位置
-#         self.state = "down"  # 降下状態or停止状態
-#         self.interval = random.randint(50, 300)  # 爆弾投下インターバル
+class Durian(pg.sprite.Sprite):
+    """
+    スキル:ドリアンのこと
+     
+    まだ終わってないよ
+    """
+    def __init__(self, player: Bird):
+        super().__init__()
+        self.image = pg.transform.rotozoom(pg.image.load("fig/fruit_durian.png"), 0, 0.3)  # ドリアンの倍率設定
+        self.rect = self.image.get_rect()
+        self.rect.center = player.rect.center  # ドリアンの初期座標
+        self.x = player.rect.centerx  #ドリアンの初期x座標をこうかとんに設定
+        self.y = player.rect.centery  #ドリアンの初期y座標をこうかとんに設定
+        self.vx = 0.5  # 初期速度(x方向)
+        self.vy = 0.5  # 初期速度(y方向)
 
-#     def update(self):
-#         """
-#         敵機を速度ベクトルself.vyに基づき移動（降下）させる
-#         ランダムに決めた停止位置_boundまで降下したら，_stateを停止状態に変更する
-#         引数 screen：画面Surface
-#         """
-#         if self.dir == 1:
-#             if self.rect.centerx < self.bound:
-#                 self.vx = 0
-#                 self.vy = 0
-#                 self.state = "stop"
-#         if self.dir == 2:
-#             if self.rect.centerx > self.bound:
-#                 self.vx = 0
-#                 self.vy = 0
-#                 self.state = "stop"
-#         if self.dir == 3:
-#             if self.rect.centery < self.bound:
-#                 self.vx = 0
-#                 self.vy = 0
-#                 self.state = "stop"
-#         if self.dir == 4:
-#             if self.rect.centery > self.bound:
-#                 self.vx = 0
-#                 self.vy = 0
-#                 self.state = "stop"
+    def update(self):
+        self.x += self.vx
+        self.y += self.vy  # 右下発射
 
+        if self.rect.left < 0:  # 左壁衝突時の反転
+            self.x = 50
+            self.vx *= -1
+        elif self.rect.right > WIDTH:  # 右壁衝突時の反転
+            self.x = WIDTH - 50
+            self.vx *= -1
+        if self.rect.top < 0:  # 上壁衝突時の反転
+            self.y = 60
+            self.vy *= -1
+        elif self.rect.bottom > HEIGHT:  # 下壁衝突時の反転
+            self.y = HEIGHT - 60
+            self.vy *= -1
+            
+        self.rect = self.image.get_rect()
+        self.rect.center = (self.x, self.y)
+        # self.rect.center = (
+        #     self.player.rect.centerx + math.cos(self.angle) * self.radius,
+        #     self.player.rect.centery + math.sin(self.angle) * self.radius
+        # )
+        # hits = pg.sprite.spritecollide(self, emys, True)
+        # for hit in hits:
+        #     exps.add(Explosion(hit, 100))
+        #     score.value += 8
 
-#         self.rect.move_ip(self.vx, self.vy)
+class Soccerball(pg.sprite.Sprite):
+    def __init__(self, player: Bird):
+        super().__init__()
+        self.image = pg.transform.rotozoom(pg.image.load("fig/sport_soccerball.png"), 0, 0.1)  # サッカーボールの倍率設定
+        self.rect = self.image.get_rect()
+        self.rect.center = player.rect.center  # サッカーボールの初期座標
+        self.x = player.rect.centerx  #サッカーボールの初期x座標をこうかとんに設定
+        self.y = player.rect.centery  #サッカーボールの初期y座標をこうかとんに設定
+        self.vx = 2  # 初期速度(x方向)
+        self.vy = 2  # 初期速度(y方向)
+
+    def update(self):
+        self.x -= self.vx
+        self.y -= self.vy  # 左上発射
+
+        if self.rect.left < 0:  # 左壁衝突時の反転
+            self.x = 20
+            self.vx *= -1
+        elif self.rect.right > WIDTH:  # 右壁衝突時の反転
+            self.x = WIDTH - 20
+            self.vx *= -1
+        if self.rect.top < 0:  # 上壁衝突時の反転
+            self.y = 20
+            self.vy *= -1
+        elif self.rect.bottom > HEIGHT:  # 下壁衝突時の反転
+            self.y = HEIGHT - 20
+            self.vy *= -1
+        
+        self.rect.center = (self.x, self.y)
+
 
 class Enemy(pg.sprite.Sprite):
     def __init__(self, player: Bird, spawn_directions: int):
@@ -372,6 +391,9 @@ def main():
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
     gravities = pg.sprite.Group()
+    skills = pg.sprite.Group()  # スキルの格納グループの生成
+    drns = pg.sprite.Group()  # ドリアンのグループ
+    balls = pg.sprite.Group()  # サッカーボールのグループ
 
     tmr = 0
     clock = pg.time.Clock()
@@ -395,6 +417,23 @@ def main():
                 else:
                     # 通常の単発ビーム
                     beams.add(Beam(bird))
+            
+            """
+            スキル選択画面
+            敵を倒した数で判断
+            選択画面表示中はすべての時間をSTOPする
+            キーボードでスキルの選択:
+                1 ドリアン
+                2 サッカーボール
+            """
+            if bird.wait_skill:  # birdで定義、スキル画面のこと
+                if event.type == pg.KEYDOWN:  # キーが押されたら
+                    if event.key == pg.K_1:  # 1を押したら
+                        skills.add(Durian(bird))  # スキルのリストに、クラス(Durian)を追加
+                        bird.wait_skill = False  # この画面を消す
+                    if event.key == pg.K_2:  #2を押したら
+                        skills.add(Soccerball(bird))  # スキルリストに、クラス(Soccerball)を追加
+                        bird.wait_skill = False  # この画面を消す
         screen.blit(bg_img, [0, 0])
 
         # 5秒ごとに敵の出現数と方向を増やす
@@ -420,6 +459,13 @@ def main():
             score.value += 10  # 10点アップ
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
 
+            if score.value % 30 == 0:  # 30点ごとにスキルの選択
+                bird.wait_skill = True
+        
+        for emy in pg.sprite.groupcollide(emys, drns, True, True).keys():
+            exps.add(Explosion(emy, 100))
+            score.value += 5
+
         for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
             score.value += 1  # 1点アップ
@@ -438,6 +484,18 @@ def main():
             pg.display.update()
             time.sleep(2)
             return
+        
+
+        if bird.wait_skill:
+            """
+            スキル選択画面
+            """
+            screen.fill((0, 0, 0))  # 黒画面
+            font = pg.font.Font(None, 50)  # fontの大きさ
+            text = font.render("Select Skill - 1:Durian 2:Soccerball 3:MultiBeam", True, (255, 255, 255))  # 書く文字と白色
+            screen.blit(text, ((WIDTH//4) - 200, HEIGHT//2))  # 描写位置
+            pg.display.update()
+            continue  # これがないと下のアップデートが実行されてしまうため必須
 
         bird.update(key_lst, screen)
         beams.update()
@@ -450,6 +508,9 @@ def main():
         exps.draw(screen)
         gravities.update()
         gravities.draw(screen)
+        drns.draw(screen)
+        skills.update()  # スキル機能のアップデート
+        skills.draw(screen)  # スキル機能の描画
         score.update(screen)
         pg.display.update()
         tmr += 1
