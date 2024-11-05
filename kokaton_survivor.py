@@ -75,9 +75,6 @@ class GravityItem(pg.sprite.Sprite):
         重力場発動アイテムを生成する
         """
         super().__init__()
-        # self.image = pg.Surface((30, 30))
-        # pg.draw.circle(self.image, (100, 100, 100), (15, 15), 15)
-        # self.image.set_colorkey((0, 0, 0)) 
         self.image = pg.transform.rotozoom(pg.image.load(f"fig/bakudan.png"), 0, 0.15)
         self.rect = self.image.get_rect()
         self.rect.center = random.randint(50, WIDTH-50), random.randint(50, HEIGHT-50)
@@ -309,8 +306,6 @@ class Enemy(pg.sprite.Sprite):
         super().__init__()
         self.image = pg.transform.rotozoom(pg.image.load(f"fig/alien1.png"), 0, 0.5)
         self.rect = self.image.get_rect()
-        # self.image2 = pg.transform.rotozoom(pg.image.load("fig/images.jpg"), 0, 0.3)
-        # self.rect2 = self.image.get_rect()
         
         # 指定された方向数に基づいてランダムな角度を選択
         angle = random.randint(0, spawn_directions-1) * (360/spawn_directions)
@@ -411,13 +406,7 @@ class ClownEnemy(pg.sprite.Sprite):
         # 最終的な移動を適用
         self.rect.x += self.vx + perpendicular_x * zigzag
         self.rect.y += self.vy + perpendicular_y * zigzag
-        
-       
 
-# メインゲームループで使用する敵生成関数
-# def create_enemy(player: "Bird", spawn_directions: int) -> pg.sprite.Sprite:
-#     """敵を生成する関数"""
-#     return ClownEnemy(player, spawn_directions)
 
 class Item(pg.sprite.Sprite):
     """
@@ -428,9 +417,6 @@ class Item(pg.sprite.Sprite):
         強化アイテムSurfaceを生成する
         """
         super().__init__()
-        # self.image = pg.Surface((20, 20))
-        # pg.draw.circle(self.image, (255, 200, 200), (10, 10), 10)
-        # self.image.set_colorkey((0, 0, 0))
         self.image = pg.transform.rotozoom(pg.image.load(f"fig/kouseki_colorful.png"), 0, 0.1)
         self.rect = self.image.get_rect()
         self.rect.center = random.randint(50, WIDTH-50), random.randint(50, HEIGHT-50)
@@ -463,14 +449,8 @@ def main():
     while True:
         key_lst = pg.key.get_pressed()
         for event in pg.event.get():
-            # if tmr%70 == 0:  # 出現頻度を200から100に変更
-            #     new_enemy = create_enemy(bird, spawn_directions)
-            #     emys.add(new_enemy)
             if event.type == pg.QUIT:
                 return 0
-            # if event.type == pg.KEYDOWN and event.key == pg.K_r and score.value >= 200:
-            #     gravities.add(Gravity(400))  # 重力場を発動
-            #     score.value -= 200  # スコアを消費
 
         # 定期的に自動発射
         beam_timer += 1
@@ -500,11 +480,6 @@ def main():
         if tmr != 0:
             if tmr%1200 == 0:  # 1200フレームに1回、重力場発動アイテムを出現させる
                 gravityitems.add(GravityItem(screen))
-
-        # for emy in emys:
-        #     if emy.state == "stop" and tmr%emy.interval == 0:
-        #         # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
-        #         bombs.add(Bomb(emy, bird))
 
         # 通常の敵との衝突判定
         if pg.sprite.spritecollideany(bird, emys):
