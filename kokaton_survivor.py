@@ -271,30 +271,34 @@ class Durian(pg.sprite.Sprite):
         self.image = pg.transform.rotozoom(pg.image.load("fig/fruit_durian.png"), 0, 0.3)  # ドリアンの倍率設定
         self.rect = self.image.get_rect()
         self.rect.center = player.rect.center  # ドリアンの初期座標
-        self.x = player.rect.centerx  #ドリアンの初期x座標をこうかとんに設定
-        self.y = player.rect.centery  #ドリアンの初期y座標をこうかとんに設定
-        self.vx = 0.5  # 初期速度(x方向)
-        self.vy = 0.5  # 初期速度(y方向)
+        # self.x = player.rect.centerx  #ドリアンの初期x座標をこうかとんに設定
+        # self.y = player.rect.centery  #ドリアンの初期y座標をこうかとんに設定
+        self.vx = 1  # 初期速度(x方向)
+        self.vy = 1  # 初期速度(y方向)
+        self.speed = 3
 
     def update(self):
-        self.x += self.vx
-        self.y += self.vy  # 右下発射
+        # self.x += self.vx
+        # self.y += self.vy  # 右下発射
+        self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
 
         if self.rect.left < 0:  # 左壁衝突時の反転
-            self.x = 50
+            # self.x = 50
             self.vx *= -1
-        elif self.rect.right > WIDTH:  # 右壁衝突時の反転
-            self.x = WIDTH - 50
+        if self.rect.right > WIDTH:  # 右壁衝突時の反転
+            # self.x = WIDTH - 50
             self.vx *= -1
         if self.rect.top < 0:  # 上壁衝突時の反転
-            self.y = 60
+            # self.y = 60
             self.vy *= -1
-        elif self.rect.bottom > HEIGHT:  # 下壁衝突時の反転
-            self.y = HEIGHT - 60
+        if self.rect.bottom > HEIGHT:  # 下壁衝突時の反転
+            # self.y = HEIGHT - 60
             self.vy *= -1
-            
-        self.rect = self.image.get_rect()
-        self.rect.center = (self.x, self.y)
+        
+
+        # self.rect = self.image.get_rect()
+        # self.rect.center = (self.x, self.y)
+
         # self.rect.center = (
         #     self.player.rect.centerx + math.cos(self.angle) * self.radius,
         #     self.player.rect.centery + math.sin(self.angle) * self.radius
@@ -310,29 +314,34 @@ class Soccerball(pg.sprite.Sprite):
         self.image = pg.transform.rotozoom(pg.image.load("fig/sport_soccerball.png"), 0, 0.1)  # サッカーボールの倍率設定
         self.rect = self.image.get_rect()
         self.rect.center = player.rect.center  # サッカーボールの初期座標
-        self.x = player.rect.centerx  #サッカーボールの初期x座標をこうかとんに設定
-        self.y = player.rect.centery  #サッカーボールの初期y座標をこうかとんに設定
-        self.vx = 2  # 初期速度(x方向)
-        self.vy = 2  # 初期速度(y方向)
+        # self.x = player.rect.centerx  #サッカーボールの初期x座標をこうかとんに設定
+        # self.y = player.rect.centery  #サッカーボールの初期y座標をこうかとんに設定
+        self.vx = 1  # 初期速度(x方向)
+        self.vy = 1  # 初期速度(y方向)
+        self.speed = 10
 
-    def update(self):
-        self.x -= self.vx
-        self.y -= self.vy  # 左上発射
+    def update(self, emy_rct):
+        # self.x -= self.vx
+        # self.y -= self.vy  # 左上発射
+        self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
 
-        if self.rect.left < 0:  # 左壁衝突時の反転
-            self.x = 20
+        if self.rect.left < 0 or self.rect.right > WIDTH:  # 左と右壁衝突時の反転
+            # self.x = 20
             self.vx *= -1
-        elif self.rect.right > WIDTH:  # 右壁衝突時の反転
-            self.x = WIDTH - 20
-            self.vx *= -1
-        if self.rect.top < 0:  # 上壁衝突時の反転
-            self.y = 20
-            self.vy *= -1
-        elif self.rect.bottom > HEIGHT:  # 下壁衝突時の反転
-            self.y = HEIGHT - 20
+        if self.rect.top < 0 or self.rect.bottom > HEIGHT:  # 上と下壁衝突時の反転
+            # self.y = 20
             self.vy *= -1
         
-        self.rect.center = (self.x, self.y)
+        # self.rect.center = (self.x, self.y)
+    
+        for emy in pg.sprite.spritecollide(self, emy_rct, False):
+            #balls.update(emy)
+    # def hit(self, emy_rct):
+            if self.rect.left <= emy.rect.right or self.rect.right >= emy.rect.left:
+                self.vx *= -1
+            if self.rect.top >= emy.rect.bottom or self.rect.bottom <= emy.rect.top:
+                self.vy *= -1
+
 
 
 class Enemy(pg.sprite.Sprite):
@@ -391,7 +400,7 @@ def main():
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
     gravities = pg.sprite.Group()
-    skills = pg.sprite.Group()  # スキルの格納グループの生成
+    # skills = pg.sprite.Group()  # スキルの格納グループの生成
     drns = pg.sprite.Group()  # ドリアンのグループ
     balls = pg.sprite.Group()  # サッカーボールのグループ
 
@@ -429,10 +438,10 @@ def main():
             if bird.wait_skill:  # birdで定義、スキル画面のこと
                 if event.type == pg.KEYDOWN:  # キーが押されたら
                     if event.key == pg.K_1:  # 1を押したら
-                        skills.add(Durian(bird))  # スキルのリストに、クラス(Durian)を追加
+                        drns.add(Durian(bird))  # スキルのリストに、クラス(Durian)を追加
                         bird.wait_skill = False  # この画面を消す
                     if event.key == pg.K_2:  #2を押したら
-                        skills.add(Soccerball(bird))  # スキルリストに、クラス(Soccerball)を追加
+                        balls.add(Soccerball(bird))  # スキルリストに、クラス(Soccerball)を追加
                         bird.wait_skill = False  # この画面を消す
         screen.blit(bg_img, [0, 0])
 
@@ -459,10 +468,23 @@ def main():
             score.value += 10  # 10点アップ
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
 
-            if score.value % 30 == 0:  # 30点ごとにスキルの選択
+            if score.value % 1 == 0:  # 30点ごとにスキルの選択
                 bird.wait_skill = True
+
+        # for emy in emys:
+        #     if drns.rect.collide(emy.rect):
+        #         emy.kill()
+        for emy in pg.sprite.groupcollide(emys, drns, True, False).keys():
+            exps.add(Explosion(emy, 100))
+            score.value += 5
         
-        for emy in pg.sprite.groupcollide(emys, drns, True, True).keys():
+        #for emy in emys:
+        #    balls.update(emy)
+
+        balls.update(emys)  # 反射のみ
+
+        for emy in pg.sprite.groupcollide(emys, balls, True, False).keys():
+            #balls.update(emy)
             exps.add(Explosion(emy, 100))
             score.value += 5
 
@@ -492,7 +514,7 @@ def main():
             """
             screen.fill((0, 0, 0))  # 黒画面
             font = pg.font.Font(None, 50)  # fontの大きさ
-            text = font.render("Select Skill - 1:Durian 2:Soccerball 3:MultiBeam", True, (255, 255, 255))  # 書く文字と白色
+            text = font.render("Select Skill - 1:Durian 2:Soccerball", True, (255, 255, 255))  # 書く文字と白色
             screen.blit(text, ((WIDTH//4) - 200, HEIGHT//2))  # 描写位置
             pg.display.update()
             continue  # これがないと下のアップデートが実行されてしまうため必須
@@ -508,9 +530,11 @@ def main():
         exps.draw(screen)
         gravities.update()
         gravities.draw(screen)
+        drns.update()
         drns.draw(screen)
-        skills.update()  # スキル機能のアップデート
-        skills.draw(screen)  # スキル機能の描画
+        #for emy in emys:
+        #    balls.update(emy)  # スキル機能のアップデート
+        balls.draw(screen)  # スキル機能の描画
         score.update(screen)
         pg.display.update()
         tmr += 1
