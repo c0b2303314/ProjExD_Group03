@@ -118,6 +118,10 @@ class Bird(pg.sprite.Sprite):
         self.state = "normal"  # 追加: 通常状態
         self.hyper_life = 0    # 追加: 発動時間
 
+        self.skills = []  # スキルの格納リスト(手持ちのスキル)
+        self.wait_skill = False  # スキル選択画面の表示について
+
+
     def change_img(self, num: int, screen: pg.Surface):
         """
         こうかとん画像を切り替え，画面に転送する
@@ -301,6 +305,90 @@ class Explosion(pg.sprite.Sprite):
             self.kill()
 
 
+class Durian(pg.sprite.Sprite):
+    """
+    スキル:ドリアンのこと
+     
+    まだ終わってないよ
+    """
+    def __init__(self, player: Bird):
+        super().__init__()
+        self.image = pg.transform.rotozoom(pg.image.load("fig/fruit_durian.png"), 0, 0.3)  # ドリアンの倍率設定
+        self.rect = self.image.get_rect()
+        self.rect.center = player.rect.center  # ドリアンの初期座標
+        # self.x = player.rect.centerx  #ドリアンの初期x座標をこうかとんに設定
+        # self.y = player.rect.centery  #ドリアンの初期y座標をこうかとんに設定
+        self.vx = 1  # 初期速度(x方向)
+        self.vy = 1  # 初期速度(y方向)
+        self.speed = 3
+
+    def update(self):
+        # self.x += self.vx
+        # self.y += self.vy  # 右下発射
+        self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
+
+        if self.rect.left < 0:  # 左壁衝突時の反転
+            # self.x = 50
+            self.vx *= -1
+        if self.rect.right > WIDTH:  # 右壁衝突時の反転
+            # self.x = WIDTH - 50
+            self.vx *= -1
+        if self.rect.top < 0:  # 上壁衝突時の反転
+            # self.y = 60
+            self.vy *= -1
+        if self.rect.bottom > HEIGHT:  # 下壁衝突時の反転
+            # self.y = HEIGHT - 60
+            self.vy *= -1
+        
+
+        # self.rect = self.image.get_rect()
+        # self.rect.center = (self.x, self.y)
+
+        # self.rect.center = (
+        #     self.player.rect.centerx + math.cos(self.angle) * self.radius,
+        #     self.player.rect.centery + math.sin(self.angle) * self.radius
+        # )
+        # hits = pg.sprite.spritecollide(self, emys, True)
+        # for hit in hits:
+        #     exps.add(Explosion(hit, 100))
+        #     score.value += 8
+
+class Soccerball(pg.sprite.Sprite):
+    def __init__(self, player: Bird):
+        super().__init__()
+        self.image = pg.transform.rotozoom(pg.image.load("fig/sport_soccerball.png"), 0, 0.1)  # サッカーボールの倍率設定
+        self.rect = self.image.get_rect()
+        self.rect.center = player.rect.center  # サッカーボールの初期座標
+        # self.x = player.rect.centerx  #サッカーボールの初期x座標をこうかとんに設定
+        # self.y = player.rect.centery  #サッカーボールの初期y座標をこうかとんに設定
+        self.vx = 1  # 初期速度(x方向)
+        self.vy = 1  # 初期速度(y方向)
+        self.speed = 10
+
+    def update(self, emy_rct):
+        # self.x -= self.vx
+        # self.y -= self.vy  # 左上発射
+        self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
+
+        if self.rect.left < 0 or self.rect.right > WIDTH:  # 左と右壁衝突時の反転
+            # self.x = 20
+            self.vx *= -1
+        if self.rect.top < 0 or self.rect.bottom > HEIGHT:  # 上と下壁衝突時の反転
+            # self.y = 20
+            self.vy *= -1
+        
+        # self.rect.center = (self.x, self.y)
+    
+        for emy in pg.sprite.spritecollide(self, emy_rct, False):
+            #balls.update(emy)
+    # def hit(self, emy_rct):
+            if self.rect.left <= emy.rect.right or self.rect.right >= emy.rect.left:
+                self.vx *= -1
+            if self.rect.top >= emy.rect.bottom or self.rect.bottom <= emy.rect.top:
+                self.vy *= -1
+
+
+
 class Enemy(pg.sprite.Sprite):
     def __init__(self, player: Bird, spawn_directions: int):
         super().__init__()
@@ -428,6 +516,7 @@ def main():
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"fig/pg_bg.jpg")
     score = Score()
+    level_save = 0
 
     bird = Bird(3, (900, 400))
     bombs = pg.sprite.Group()
@@ -438,6 +527,9 @@ def main():
     gravities = pg.sprite.Group()
     items = pg.sprite.Group()
     gravityitems = pg.sprite.Group()
+    # skills = pg.sprite.Group()  # スキルの格納グループの生成
+    drns = pg.sprite.Group()  # ドリアンのグループ
+    balls = pg.sprite.Group()  # サッカーボールのグループ
 
     tmr = 0
     beam_timer = 0  # 追加: ビーム発射のタイマー
@@ -451,6 +543,22 @@ def main():
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return 0
+            """
+            スキル選択画面
+            敵を倒した数で判断
+            選択画面表示中はすべての時間をSTOPする
+            キーボードでスキルの選択:
+                1 ドリアン
+                2 サッカーボール
+            """
+            if bird.wait_skill:  # birdで定義、スキル画面のこと
+                if event.type == pg.KEYDOWN:  # キーが押されたら
+                    if event.key == pg.K_1:  # 1を押したら
+                        drns.add(Durian(bird))  # スキルのリストに、クラス(Durian)を追加
+                        bird.wait_skill = False  # この画面を消す
+                    if event.key == pg.K_2:  #2を押したら
+                        balls.add(Soccerball(bird))  # スキルリストに、クラス(Soccerball)を追加
+                        bird.wait_skill = False  # この画面を消す
 
         # 定期的に自動発射
         beam_timer += 1
@@ -502,11 +610,39 @@ def main():
             score.value += 10  # 10点アップ
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
 
+            if int(score.value / 250) > level_save:  # 30点ごとにスキルの選択
+                bird.wait_skill = True
+                print(level_save)
+                level_save = int(score.value / 250)
+
+        for emy in pg.sprite.groupcollide(emys, drns, True, False).keys():
+            exps.add(Explosion(emy, 100))
+            score.value += 5
+
+        for emy in pg.sprite.groupcollide(cemys, drns, True, False).keys():
+            exps.add(Explosion(cemy, 100))
+            score.value += 5
+
+        balls.update(emys)  # 反射のみ
+        balls.update(cemys)  # 反射のみ
+
+        for emy in pg.sprite.groupcollide(emys, balls, True, False).keys():
+            exps.add(Explosion(emy, 100))
+            score.value += 5
+
+        for emy in pg.sprite.groupcollide(cemys, balls, True, False).keys():
+            exps.add(Explosion(cemy, 100))
+            score.value += 5
+
         for cemy in pg.sprite.groupcollide(cemys, beams, True, True).keys():
             exps.add(Explosion(cemy, 100))  # 爆発エフェクト
             score.value += 10  # 10点アップ
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
-
+            if int(score.value / 250) > level_save:  # 30点ごとにスキルの選択
+                bird.wait_skill = True
+                print(level_save)
+                level_save = int(score.value / 250)
+            
         for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
             score.value += 1  # 1点アップ
@@ -539,6 +675,18 @@ def main():
             pg.display.update()
             time.sleep(2)
             return
+        
+
+        if bird.wait_skill:
+            """
+            スキル選択画面
+            """
+            screen.fill((0, 0, 0))  # 黒画面
+            font = pg.font.Font(None, 50)  # fontの大きさ
+            text = font.render("Select Skill - 1:Durian 2:Soccerball", True, (255, 255, 255))  # 書く文字と白色
+            screen.blit(text, ((WIDTH//4) - 200, HEIGHT//2))  # 描写位置
+            pg.display.update()
+            continue  # これがないと下のアップデートが実行されてしまうため必須
 
         bird.update(key_lst, screen)
         beams.update(xbeam)
@@ -551,6 +699,11 @@ def main():
         exps.draw(screen)
         gravities.update()
         gravities.draw(screen)
+        drns.update()
+        drns.draw(screen)
+        #for emy in emys:
+        #    balls.update(emy)  # スキル機能のアップデート
+        balls.draw(screen)  # スキル機能の描画
         items.draw(screen)  # 強化アイテムを画面に描画
         gravityitems.draw(screen)  # 重力場発動アイテムを画面に描画
         score.update(screen)
