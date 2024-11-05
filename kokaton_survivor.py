@@ -173,7 +173,7 @@ class Beam(pg.sprite.Sprite):
     """
     ビームに関するクラス
     """
-    def __init__(self, bird: Bird,angle0:float=0):  # angleのパラメータを追加
+    def __init__(self, bird,angle0:float=0):  # angleのパラメータを追加
         """
         ビーム画像Surfaceを生成する
         引数1 bird：ビームを放つこうかとん
@@ -219,15 +219,18 @@ class NeoBeam:
         戻り値：Beamインスタンスのリスト
         """
         beams = []
-        angle_range = 100  # -50度から+50度
+        # 基準となる角度をランダムに決定 (-180度から180度の間)
+        base_angle = random.randint(-180, 180)
+        angle_range = 100  # 発射範囲は100度
         angle_step = angle_range / (self.num - 1) if self.num > 1 else 0
         
         for i in range(self.num):
-            angle = -50 + (i * angle_step)  # -50度から+50度までの角度を計算
-            beams.append(Beam(self.bird, angle))
+            # 基準角度を中心に扇状に広がるように角度を計算
+            spread_angle = -50 + (i * angle_step)  # -50度から+50度まで扇状に広がる
+            final_angle = base_angle + spread_angle  # 基準角度に扇状の角度を加算
+            beams.append(Beam(self.bird, final_angle))
         
         return beams
-
 class Explosion(pg.sprite.Sprite):
     """
     爆発に関するクラス
@@ -363,17 +366,52 @@ class Boss:
         self.image = pg.image.load("fig/boss.png")
         self.rect = self.image.get_rect()
         self.rect.center = (WIDTH/2,150)  # ボスの初期位置を設定
-        self.health = 100  # ボスの体力（必要に応じて調整）
+        self.health = 50  # ボスの体力（必要に応じて調整）
         self.appearing=True
+        self.font = pg.font.Font(None, 50)  # 体力表示用のフォント
+        self.defeated = False  # ボス撃破フラグ
+        self.defeat_time = None  # ボス撃破時刻
+        self.dire=(+1, 0)
     def __update__(self, screen):
-        # ボスの表示のみを行う
+        # ボスの表示と移動
         if self.appearing:
-            self.rect.y += 1  # ボスのスライドダウン速度
-            if self.rect.top >= 150:  # 目標位置に到達したら停止
+            self.rect.y += 1
+            if self.rect.top >= 150:
                 self.rect.top = 150
                 self.appearing = False
-        # ボスの表示
-        screen.blit(self.image, self.rect)
+
+        # 体力表示
+        health_text = self.font.render(f"Boss HP: {self.health}", True, (255, 0, 0))
+        screen.blit(health_text, (10, 10))
+
+        # ボス撃破時の処理
+        if self.health <= 0 and not self.defeated:
+            self.defeated = True
+            self.defeat_time = time.time()
+            # 大きな爆発エフェクトを生成
+            explosion = Explosion(self, 100)
+            health_text = self.font.render(f"Boss HP:", True, (255, 0, 0))
+            explosion.image = pg.transform.scale(explosion.image, 
+                                              (explosion.image.get_width()*3, 
+                                               explosion.image.get_height()*3))
+            return explosion
+        
+        # 通常表示
+        if not self.defeated:
+            screen.blit(self.image, self.rect)
+
+        # ゲームクリア表示
+        if self.defeated:
+            clear_font = pg.font.Font(None, 150)
+            clear_text = clear_font.render("GAME CLEAR!", True, (255, 215, 0))
+            clear_rect = clear_text.get_rect(center=(WIDTH//2, HEIGHT//2))
+            screen.blit(clear_text, clear_rect)
+            
+            # 5秒経過後にゲーム終了
+            if time.time() - self.defeat_time >= 5:
+                pg.quit()
+                sys.exit()
+
         
 
 
@@ -426,10 +464,12 @@ def main():
     bird = Bird(3, (900, 400))
     bombs = pg.sprite.Group()
     beams = pg.sprite.Group()
+    boss_beams=pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
     gravities = pg.sprite.Group()
     appearance=Appearance(score)
+    
 
     tmr = 0
     clock = pg.time.Clock()
@@ -449,7 +489,7 @@ def main():
                 if key_lst[pg.K_LSHIFT]:  # 左シフトキーが押されている場合
                     # 複数方向ビームを発射
                     neo_beam = NeoBeam(bird, 5)  # 5本のビームを発射
-                    beams.add(*neo_beam.gen_beams())
+                    beams.add(neo_beam.gen_beams())
                 else:
                     # 通常の単発ビーム
                     beams.add(Beam(bird))
@@ -464,6 +504,12 @@ def main():
 
         if tmr%200 == 0 and not appearance.boss_appeared: # 200フレームに1回，敵機を出現させる
             emys.add(Enemy(bird, spawn_directions))
+
+        if tmr%300==0 and appearance.boss_appeared:
+            boss_neo_beam = NeoBeam(appearance.boss, 3)  # ボスが3本のビームを発射
+            boss_beams.add(boss_neo_beam.gen_beams())
+            # print("hello")
+
 
         # for emy in emys:
         #     if emy.state == "stop" and tmr%emy.interval == 0:
@@ -496,10 +542,30 @@ def main():
             pg.display.update()
             time.sleep(2)
             return
+        
+        if len(pg.sprite.spritecollide(bird, boss_beams, True)) != 0:
+            bird.change_img(8, screen) # こうかとん悲しみエフェクト
+            score.update(screen)
+            pg.display.update()
+            time.sleep(2)
+            return
+        
+        if appearance.boss and appearance.boss_visible:
+            for beam in beams:
+                if appearance.boss.rect.colliderect(beam.rect):
+                    appearance.boss.health -= 1  # ビームが当たるたびに体力を1減らす
+                    beam.kill()  # ビームを消す
+                    
+            # ボス撃破時の爆発エフェクト生成
+            explosion = appearance.boss.__update__(screen)
+            if explosion:
+                exps.add(explosion)
 
         bird.update(key_lst, screen)
         beams.update()
         beams.draw(screen)
+        boss_beams.update()
+        boss_beams.draw(screen)
         emys.update()
         emys.draw(screen, bird)
         bombs.update()
