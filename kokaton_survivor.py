@@ -358,20 +358,78 @@ class Score:
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         screen.blit(self.image, self.rect)
 
+class Boss:
+    def __init__(self):
+        self.image = pg.image.load("fig/boss.png")
+        self.rect = self.image.get_rect()
+        self.rect.center = (WIDTH/2,150)  # ボスの初期位置を設定
+        self.health = 100  # ボスの体力（必要に応じて調整）
+        self.appearing=True
+    def __update__(self, screen):
+        # ボスの表示のみを行う
+        if self.appearing:
+            self.rect.y += 1  # ボスのスライドダウン速度
+            if self.rect.top >= 150:  # 目標位置に到達したら停止
+                self.rect.top = 150
+                self.appearing = False
+        # ボスの表示
+        screen.blit(self.image, self.rect)
+        
 
 
+class Appearance:
+    def __init__(self, score):
+        self.score = score  # Score クラスのインスタンス
+        self.boss_appeared = False  # ボスが登場しているかのフラグ
+        self.boss = None  # ボスのインスタンス
+        self.enemies = []  # 通常の敵リスト
+        self.font = pg.font.Font(None, 100)
+        self.boss_time = None
+        self.flash_time = 0
+        self.boss_visible = False
+
+    def __update__(self, screen):
+        # ボスの出現条件
+        if self.score.value > 5 and not self.boss_appeared:
+            self.boss_appeared = True
+            self.boss = Boss()
+            self.enemies.clear()  # 他の敵を削除
+            self.boss_time = time.time()  # 通常の敵をすべて削除
+            self.flash_time = 0  # 点滅時間リセット
+            self.boss_visible = False  # 点滅状態に入る前に初期化
+
+        # ボスが登場している場合の更新と表示
+        if self.boss_time and time.time() - self.boss_time < 4:
+            # ボス襲来の文字表示
+            self.flash_time += 1
+            if self.flash_time % 80 < 10:
+                text = self.font.render("WARNING!!", True, (255, 0, 0))
+                screen.blit(text, (320, HEIGHT / 2))
+                if self.flash_time > 4:
+                    self.boss_visible = True
+        elif self.boss and self.boss_visible:
+            # ボスが点滅状態を抜けた後も表示
+            self.boss.__update__(screen)
+
+        # ボスが登場していない場合は通常の敵を表示
+        if not self.boss_appeared:
+            for enemy in self.enemies:
+                enemy.__update__(screen)
+
+
+        
 def main():
     pg.display.set_caption("こうかとんサバイバー")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"fig/pg_bg.jpg")
     score = Score()
-
     bird = Bird(3, (900, 400))
     bombs = pg.sprite.Group()
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
     gravities = pg.sprite.Group()
+    appearance=Appearance(score)
 
     tmr = 0
     clock = pg.time.Clock()
@@ -399,12 +457,12 @@ def main():
 
         # 5秒ごとに敵の出現数と方向を増やす
         current_time = tmr // 50  # フレーム数を秒数に変換
-        if current_time - last_enemy_increase >= 5:
+        if current_time - last_enemy_increase >= 5 and not appearance.boss_appeared:
             enemies_per_spawn += 2  # 出現数を2増やす
             spawn_directions += 2   # 方向を2増やす
             last_enemy_increase = current_time
 
-        if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
+        if tmr%200 == 0 and not appearance.boss_appeared: # 200フレームに1回，敵機を出現させる
             emys.add(Enemy(bird, spawn_directions))
 
         # for emy in emys:
@@ -451,10 +509,13 @@ def main():
         gravities.update()
         gravities.draw(screen)
         score.update(screen)
+        appearance.__update__(screen)
+        
         pg.display.update()
         tmr += 1
         clock.tick(50)
-
+        
+        
 
 if __name__ == "__main__":
     pg.init()
