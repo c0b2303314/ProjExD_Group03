@@ -5,9 +5,6 @@ import sys
 import time
 import pygame as pg
 from pygame.locals import *
-import random
-import math
-import pygame as pg
 
 WIDTH = 1100  # ゲームウィンドウの幅
 HEIGHT = 650  # ゲームウィンドウの高さ
@@ -70,7 +67,7 @@ class GravityItem(pg.sprite.Sprite):
     """
     重力場発動アイテムに関するクラス
     """
-    def __init__(self, screen: pg.Surface):
+    def __init__(self):
         """
         重力場発動アイテムを生成する
         """
@@ -195,7 +192,7 @@ class Beam(pg.sprite.Sprite):
     """
     追尾機能付きビームに関するクラス
     """
-    def __init__(self, bird: Bird, xbeam: float, enemies: pg.sprite.Group, clown_enemies: pg.sprite.Group):
+    def __init__(self, bird: Bird, xbeam: float, enemies: pg.sprite.Group, clown_enemies: pg.sprite.Group, appearance):
         """
         ビームを生成する
         引数1 bird：ビームを放つこうかとん
@@ -208,11 +205,15 @@ class Beam(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = bird.rect.center
         self.speed = 10
+        self.appearance = appearance
         
-        # 最も近い敵を特定
-        self.target = self._find_nearest_enemy(bird, enemies, clown_enemies)
-        # 初期の移動方向を設定
-        self.vx, self.vy = bird.dire if self.target is None else calc_orientation(self.rect, self.target.rect)
+        if self.appearance:
+            self.vx, self.vy = calc_orientation(self.rect, pg.Rect(WIDTH/2, 250, 0, 0))
+        else:
+            # 最も近い敵を特定
+            self.target = self._find_nearest_enemy(bird, enemies, clown_enemies)
+            # 初期の移動方向を設定
+            self.vx, self.vy = bird.dire if self.target is None else calc_orientation(self.rect, self.target.rect)
         
         # 角度の計算と画像の回転
         angle = math.degrees(math.atan2(-self.vy, self.vx))
@@ -244,14 +245,18 @@ class Beam(pg.sprite.Sprite):
         ビームを移動させる
         敵が生存している場合は追尾する
         """
-        if self.target and self.target.alive():
-            # ターゲットの方向を再計算
-            self.vx, self.vy = calc_orientation(self.rect, self.target.rect)
-            # 画像の角度を更新
-            angle = math.degrees(math.atan2(-self.vy, self.vx))
-            self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, xbeam)
-        
-        self.rect.move_ip(self.speed * self.vx, self.speed * self.vy)
+        if self.appearance:
+            # 画面中央へ移動する処理
+            self.rect.move_ip(self.speed * self.vx, self.speed * self.vy)
+        else:
+            if self.target and self.target.alive():
+                # ターゲットの方向を再計算
+                self.vx, self.vy = calc_orientation(self.rect, self.target.rect)
+                # 画像の角度を更新
+                angle = math.degrees(math.atan2(-self.vy, self.vx))
+                self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, xbeam)
+            self.rect.move_ip(self.speed * self.vx, self.speed * self.vy)
+            
         if (self.rect.centerx <= 0 or self.rect.centerx >= WIDTH) and (self.rect.centery <= 0 or self.rect.centery >= HEIGHT):
             self.kill()
 
@@ -283,7 +288,7 @@ class Bossbeam(pg.sprite.Sprite):
         引数 screen：画面Surface
         """
         self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
-        if check_bound(self.rect) != (True, True):
+        if (self.rect.centerx <= 0 or self.rect.centerx >= WIDTH) and (self.rect.centery <= 0 or self.rect.centery >= HEIGHT):
             self.kill()
 
 class NeoBeam:
@@ -298,7 +303,7 @@ class NeoBeam:
         self.bird = bird
         self.num = num
     
-    def gen_beams(self, xbeam: float) -> list[Bossbeam]:
+    def gen_beams(self) -> list[Bossbeam]:
         """
         複数方向のビームを生成する
         戻り値：Beamインスタンスのリスト
@@ -352,42 +357,21 @@ class Durian(pg.sprite.Sprite):
         self.image = pg.transform.rotozoom(pg.image.load("fig/fruit_durian.png"), 0, 0.3)  # ドリアンの倍率設定
         self.rect = self.image.get_rect()
         self.rect.center = player.rect.center  # ドリアンの初期座標
-        # self.x = player.rect.centerx  #ドリアンの初期x座標をこうかとんに設定
-        # self.y = player.rect.centery  #ドリアンの初期y座標をこうかとんに設定
         self.vx = 1  # 初期速度(x方向)
         self.vy = 1  # 初期速度(y方向)
         self.speed = 3
 
     def update(self):
-        # self.x += self.vx
-        # self.y += self.vy  # 右下発射
         self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
 
         if self.rect.left < 0:  # 左壁衝突時の反転
-            # self.x = 50
             self.vx *= -1
         if self.rect.right > WIDTH:  # 右壁衝突時の反転
-            # self.x = WIDTH - 50
             self.vx *= -1
         if self.rect.top < 0:  # 上壁衝突時の反転
-            # self.y = 60
             self.vy *= -1
         if self.rect.bottom > HEIGHT:  # 下壁衝突時の反転
-            # self.y = HEIGHT - 60
             self.vy *= -1
-        
-
-        # self.rect = self.image.get_rect()
-        # self.rect.center = (self.x, self.y)
-
-        # self.rect.center = (
-        #     self.player.rect.centerx + math.cos(self.angle) * self.radius,
-        #     self.player.rect.centery + math.sin(self.angle) * self.radius
-        # )
-        # hits = pg.sprite.spritecollide(self, emys, True)
-        # for hit in hits:
-        #     exps.add(Explosion(hit, 100))
-        #     score.value += 8
 
 class Soccerball(pg.sprite.Sprite):
     def __init__(self, player: Bird):
@@ -395,29 +379,20 @@ class Soccerball(pg.sprite.Sprite):
         self.image = pg.transform.rotozoom(pg.image.load("fig/sport_soccerball.png"), 0, 0.1)  # サッカーボールの倍率設定
         self.rect = self.image.get_rect()
         self.rect.center = player.rect.center  # サッカーボールの初期座標
-        # self.x = player.rect.centerx  #サッカーボールの初期x座標をこうかとんに設定
-        # self.y = player.rect.centery  #サッカーボールの初期y座標をこうかとんに設定
         self.vx = 1  # 初期速度(x方向)
         self.vy = 1  # 初期速度(y方向)
         self.speed = 10
 
     def update(self, emy_rct):
-        # self.x -= self.vx
-        # self.y -= self.vy  # 左上発射
         self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
 
         if self.rect.left < 0 or self.rect.right > WIDTH:  # 左と右壁衝突時の反転
-            # self.x = 20
             self.vx *= -1
         if self.rect.top < 0 or self.rect.bottom > HEIGHT:  # 上と下壁衝突時の反転
-            # self.y = 20
             self.vy *= -1
         
-        # self.rect.center = (self.x, self.y)
     
         for emy in pg.sprite.spritecollide(self, emy_rct, False):
-            #balls.update(emy)
-    # def hit(self, emy_rct):
             if self.rect.left <= emy.rect.right or self.rect.right >= emy.rect.left:
                 self.vx *= -1
             if self.rect.top >= emy.rect.bottom or self.rect.bottom <= emy.rect.top:
@@ -466,9 +441,7 @@ class Score:
     def update(self, screen: pg.Surface):
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         screen.blit(self.image, self.rect)
-import random
-import math
-import pygame as pg
+
 
 class ClownEnemy(pg.sprite.Sprite):
     """ピエロの敵クラス"""
@@ -536,7 +509,7 @@ class Item(pg.sprite.Sprite):
     """
     強化アイテムに関するクラス
     """
-    def __init__(self, screen: pg.Surface):
+    def __init__(self):
         """
         強化アイテムSurfaceを生成する
         """
@@ -549,10 +522,10 @@ class Boss:
     def __init__(self):
         self.image = pg.image.load("fig/boss.png")
         self.rect = self.image.get_rect()
-        self.rect.center = (WIDTH/2,150)  # ボスの初期位置を設定
+        self.rect.center = (WIDTH/2, 150)  # ボスの初期位置を設定
         self.health = 100  # ボスの体力（必要に応じて調整）
         self.appearing=True
-        self.font = pg.font.Font(None, 50)  # 体力表示のフォント
+        self.font = pg.font.Font(None, 50)  # 体力表示用のフォント
         self.defeated = False  # ボス撃破フラグ
         self.defeat_time = None  # ボス撃破時刻
         self.dire=(+1, 0)
@@ -604,18 +577,20 @@ class Appearance:
         self.score = score  # Score クラスのインスタンス
         self.boss_appeared = False  # ボスが登場しているかのフラグ
         self.boss = None  # ボスのインスタンス
-        self.enemies = []  # 通常の敵リスト
         self.font = pg.font.Font(None, 100)
         self.boss_time = None
         self.flash_time = 0
         self.boss_visible = False
 
-    def __update__(self, screen):
+    def __update__(self, screen, emys, cemys):
         # ボスの出現条件
         if self.score.value > 20 and not self.boss_appeared:
             self.boss_appeared = True
             self.boss = Boss()
-            self.enemies.clear()  # 他の敵を削除
+            for emy in emys:
+                emy.kill()  # 他の敵を削除
+            for cemy in cemys:
+                cemy.kill()
             self.boss_time = time.time()  # 通常の敵をすべて削除
             self.flash_time = 0  # 点滅時間リセット
             self.boss_visible = False  # 点滅状態に入る前に初期化
@@ -632,11 +607,6 @@ class Appearance:
         elif self.boss and self.boss_visible:
             # ボスが点滅状態を抜けた後も表示
             self.boss.__update__(screen)
-
-        # ボスが登場していない場合は通常の敵を表示
-        if not self.boss_appeared:
-            for enemy in self.enemies:
-                enemy.__update__(screen)
 
         
 def main():
@@ -656,7 +626,6 @@ def main():
     gravities = pg.sprite.Group()
     items = pg.sprite.Group()
     gravityitems = pg.sprite.Group()
-    # skills = pg.sprite.Group()  # スキルの格納グループの生成
     drns = pg.sprite.Group()  # ドリアンのグループ
     balls = pg.sprite.Group()  # サッカーボールのグループ
     appearance=Appearance(score)
@@ -694,7 +663,7 @@ def main():
         # 定期的に自動発射
         beam_timer += 1
         if beam_timer % 30 == 0:  # 30フレームごとにビームを自動発射
-            beams.add(Beam(bird, xbeam,emys,cemys))  # emysグループを渡す
+            beams.add(Beam(bird, xbeam ,emys ,cemys, appearance.boss_appeared))  # emysグループを渡す
             beam_timer = 0  # タイマーをリセット
 
         screen.blit(bg_img, [0, 0])
@@ -709,13 +678,22 @@ def main():
         if tmr%20 == 0 and not appearance.boss_appeared: # 200フレームに1回，敵機を出現させる
             emys.add(Enemy(bird, spawn_directions))
 
-        if tmr % 100 == 0 and not appearance.boss_appeared:
+        if tmr%100 == 0 and not appearance.boss_appeared:
             cemys.add(ClownEnemy(bird, spawn_directions))
 
-        if tmr%300==0 and appearance.boss_appeared:
-            boss_neo_beam = NeoBeam(appearance.boss, 3)  # ボスが3本のビームを発射
-            boss_beams.add(boss_neo_beam.gen_beams(2.0))
+        if tmr != 0:
+            if tmr%100 == 0:  # 100フレームに1回、強化アイテムを出現させる
+                items.add(Item())
 
+        if tmr != 0:
+            if tmr%1000 == 0:  # 1000フレームに1回、重力場発動アイテムを出現させる
+                gravityitems.add(GravityItem())
+
+        if tmr%300 == 0 and appearance.boss_appeared:
+            boss_neo_beam = NeoBeam(appearance.boss, 3)  # ボスが3本のビームを発射
+            boss_beams.add(boss_neo_beam.gen_beams())
+
+        # 通常の敵との衝突判定
         if pg.sprite.spritecollideany(bird, emys):
             bird.change_img(8, screen)  # こうかとん悲しみエフェクト
             score.update(screen)
@@ -853,15 +831,13 @@ def main():
         gravities.draw(screen)
         drns.update()
         drns.draw(screen)
-        #for emy in emys:
-        #    balls.update(emy)  # スキル機能のアップデート
         balls.draw(screen)  # スキル機能の描画
         items.draw(screen)  # 強化アイテムを画面に描画
         gravityitems.draw(screen)  # 重力場発動アイテムを画面に描画
         score.update(screen)
         cemys.update()
         cemys.draw(screen)
-        appearance.__update__(screen)
+        appearance.__update__(screen, emys, cemys)
         
         pg.display.update()
         tmr += 1
