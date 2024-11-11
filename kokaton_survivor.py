@@ -255,6 +255,37 @@ class Beam(pg.sprite.Sprite):
         if (self.rect.centerx <= 0 or self.rect.centerx >= WIDTH) and (self.rect.centery <= 0 or self.rect.centery >= HEIGHT):
             self.kill()
 
+class Bossbeam(pg.sprite.Sprite):
+    """
+    ビームに関するクラス
+    """
+    def __init__(self, bird, angle0:float=0):  # angleのパラメータを追加
+        """
+        ビーム画像Surfaceを生成する
+        引数1 bird：ビームを放つこうかとん
+        引数2 angle0：追加の回転角度　（デフォルト：0）
+        """
+        super().__init__()
+        self.vx, self.vy = bird.dire
+        angle = math.degrees(math.atan2(-self.vy, self.vx))
+        angle += angle0  # 追加の回転角度を適用
+        self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, 2.0)
+        self.vx = math.cos(math.radians(angle))
+        self.vy = -math.sin(math.radians(angle))
+        self.rect = self.image.get_rect()
+        self.rect.centery = bird.rect.centery+bird.rect.height*self.vy
+        self.rect.centerx = bird.rect.centerx+bird.rect.width*self.vx
+        self.speed = 10
+
+    def update(self):
+        """
+        ビームを速度ベクトルself.vx, self.vyに基づき移動させる
+        引数 screen：画面Surface
+        """
+        self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
+        if check_bound(self.rect) != (True, True):
+            self.kill()
+
 class NeoBeam:
     """
     複数方向ビームに関するクラス
@@ -267,20 +298,25 @@ class NeoBeam:
         self.bird = bird
         self.num = num
     
-    def gen_beams(self, xbeam: float) -> list[Beam]:
+    def gen_beams(self, xbeam: float) -> list[Bossbeam]:
         """
         複数方向のビームを生成する
         戻り値：Beamインスタンスのリスト
         """
         beams = []
-        angle_range = 100  # -50度から+50度
+        # 基準となる角度をランダムに決定 (-180度から180度の間)
+        base_angle = random.randint(-180, 180)
+        angle_range = 100  # 発射範囲は100度
         angle_step = angle_range / (self.num - 1) if self.num > 1 else 0
         
         for i in range(self.num):
-            angle = -50 + (i * angle_step)  # -50度から+50度までの角度を計算
-            beams.append(Beam(self.bird, xbeam, angle))
+            # 基準角度を中心に扇状に広がるように角度を計算
+            spread_angle = -50 + (i * angle_step)  # -50度から+50度まで扇状に広がる
+            final_angle = base_angle + spread_angle  # 基準角度に扇状の角度を加算
+            beams.append(Bossbeam(self.bird, final_angle))
         
         return beams
+    
 
 class Explosion(pg.sprite.Sprite):
     """
@@ -508,9 +544,101 @@ class Item(pg.sprite.Sprite):
         self.image = pg.transform.rotozoom(pg.image.load(f"fig/kouseki_colorful.png"), 0, 0.1)
         self.rect = self.image.get_rect()
         self.rect.center = random.randint(50, WIDTH-50), random.randint(50, HEIGHT-50)
+
+class Boss:
+    def __init__(self):
+        self.image = pg.image.load("fig/boss.png")
+        self.rect = self.image.get_rect()
+        self.rect.center = (WIDTH/2,150)  # ボスの初期位置を設定
+        self.health = 100  # ボスの体力（必要に応じて調整）
+        self.appearing=True
+        self.font = pg.font.Font(None, 50)  # 体力表示のフォント
+        self.defeated = False  # ボス撃破フラグ
+        self.defeat_time = None  # ボス撃破時刻
+        self.dire=(+1, 0)
+    def __update__(self, screen):
+        # ボスの表示と移動
+        if self.appearing:
+            self.rect.y += 1
+            if self.rect.top >= 150:
+                self.rect.top = 150
+                self.appearing = False
+
+        # 体力表示
+        health_text = self.font.render(f"Boss HP: {self.health}", True, (255, 0, 0))
+        screen.blit(health_text, (10, 10))
+
+        # ボス撃破時の処理
+        if self.health <= 0 and not self.defeated:
+            self.defeated = True
+            self.defeat_time = time.time()
+            # 大きな爆発エフェクトを生成
+            explosion = Explosion(self, 100)
+            health_text = self.font.render(f"Boss HP:", True, (255, 0, 0))
+            explosion.image = pg.transform.scale(explosion.image, 
+                                              (explosion.image.get_width()*3, 
+                                               explosion.image.get_height()*3))
+            return explosion
+        
+        # 通常表示
+        if not self.defeated:
+            screen.blit(self.image, self.rect)
+
+        # ゲームクリア表示
+        if self.defeated:
+            clear_font = pg.font.Font(None, 150)
+            clear_text = clear_font.render("GAME CLEAR!", True, (255, 215, 0))
+            clear_rect = clear_text.get_rect(center=(WIDTH//2, HEIGHT//2))
+            screen.blit(clear_text, clear_rect)
+            
+            # 5秒経過後にゲーム終了
+            if time.time() - self.defeat_time >= 5:
+                pg.quit()
+                sys.exit()
+
         
 
 
+class Appearance:
+    def __init__(self, score):
+        self.score = score  # Score クラスのインスタンス
+        self.boss_appeared = False  # ボスが登場しているかのフラグ
+        self.boss = None  # ボスのインスタンス
+        self.enemies = []  # 通常の敵リスト
+        self.font = pg.font.Font(None, 100)
+        self.boss_time = None
+        self.flash_time = 0
+        self.boss_visible = False
+
+    def __update__(self, screen):
+        # ボスの出現条件
+        if self.score.value > 20 and not self.boss_appeared:
+            self.boss_appeared = True
+            self.boss = Boss()
+            self.enemies.clear()  # 他の敵を削除
+            self.boss_time = time.time()  # 通常の敵をすべて削除
+            self.flash_time = 0  # 点滅時間リセット
+            self.boss_visible = False  # 点滅状態に入る前に初期化
+
+        # ボスが登場している場合の更新と表示
+        if self.boss_time and time.time() - self.boss_time < 4:
+            # ボス襲来の文字表示
+            self.flash_time += 1
+            if self.flash_time % 80 < 10:
+                text = self.font.render("WARNING!!", True, (255, 0, 0))
+                screen.blit(text, (320, HEIGHT / 2))
+                if self.flash_time > 4:
+                    self.boss_visible = True
+        elif self.boss and self.boss_visible:
+            # ボスが点滅状態を抜けた後も表示
+            self.boss.__update__(screen)
+
+        # ボスが登場していない場合は通常の敵を表示
+        if not self.boss_appeared:
+            for enemy in self.enemies:
+                enemy.__update__(screen)
+
+        
 def main():
     pg.display.set_caption("こうかとんサバイバー")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
@@ -521,6 +649,7 @@ def main():
     bird = Bird(3, (900, 400))
     bombs = pg.sprite.Group()
     beams = pg.sprite.Group()
+    boss_beams=pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
     cemys = pg.sprite.Group()
@@ -530,6 +659,8 @@ def main():
     # skills = pg.sprite.Group()  # スキルの格納グループの生成
     drns = pg.sprite.Group()  # ドリアンのグループ
     balls = pg.sprite.Group()  # サッカーボールのグループ
+    appearance=Appearance(score)
+    
 
     tmr = 0
     beam_timer = 0  # 追加: ビーム発射のタイマー
@@ -570,26 +701,21 @@ def main():
 
         # 5秒ごとに敵の出現数と方向を増やす
         current_time = tmr // 50  # フレーム数を秒数に変換
-        if current_time - last_enemy_increase >= 5:
+        if current_time - last_enemy_increase >= 5 and not appearance.boss_appeared:
             enemies_per_spawn += 100  # 出現数を2増やす
             spawn_directions += 2   # 方向を2増やす
             last_enemy_increase = current_time
 
-        if tmr % 20 == 0:  # 200フレームに1回、敵機を出現させる
+        if tmr%20 == 0 and not appearance.boss_appeared: # 200フレームに1回，敵機を出現させる
             emys.add(Enemy(bird, spawn_directions))
 
-        if tmr % 100 == 0:  # 250フレームに1回、ピエロの敵機を出現させる
-            cemys.add(ClownEnemy(bird, spawn_directions)) 
+        if tmr % 100 == 0 and not appearance.boss_appeared:
+            cemys.add(ClownEnemy(bird, spawn_directions))
 
-        if tmr != 0:
-            if tmr%400 == 0:  # 400フレームに1回、強化アイテムを出現させる
-                items.add(Item(screen))
+        if tmr%300==0 and appearance.boss_appeared:
+            boss_neo_beam = NeoBeam(appearance.boss, 3)  # ボスが3本のビームを発射
+            boss_beams.add(boss_neo_beam.gen_beams(2.0))
 
-        if tmr != 0:
-            if tmr%1200 == 0:  # 1200フレームに1回、重力場発動アイテムを出現させる
-                gravityitems.add(GravityItem(screen))
-
-        # 通常の敵との衝突判定
         if pg.sprite.spritecollideany(bird, emys):
             bird.change_img(8, screen)  # こうかとん悲しみエフェクト
             score.update(screen)
@@ -676,6 +802,30 @@ def main():
             time.sleep(2)
             return
         
+        if len(pg.sprite.spritecollide(bird, boss_beams, True)) != 0:
+            bird.change_img(8, screen) # こうかとん悲しみエフェクト
+            score.update(screen)
+            pg.display.update()
+            time.sleep(2)
+            return
+        
+        if appearance.boss and appearance.boss_visible:
+            for beam in beams:
+                if appearance.boss.rect.colliderect(beam.rect):
+                    appearance.boss.health -= 1  # ビームが当たるたびに体力を1減らす
+                    beam.kill()  # ビームを消す
+            for drn in drns:
+                if appearance.boss.rect.colliderect(drn.rect):
+                    appearance.boss.health -= 1  # ビームが当たるたびに体力を1減らす
+            for ball in balls:
+                if appearance.boss.rect.colliderect(ball.rect):
+                    appearance.boss.health -= 1  # ビームが当たるたびに体力を1減らす
+                    
+            # ボス撃破時の爆発エフェクト生成
+            explosion = appearance.boss.__update__(screen)
+            if explosion:
+                exps.add(explosion)
+        
 
         if bird.wait_skill:
             """
@@ -691,6 +841,8 @@ def main():
         bird.update(key_lst, screen)
         beams.update(xbeam)
         beams.draw(screen)
+        boss_beams.update()
+        boss_beams.draw(screen)
         emys.update()
         emys.draw(screen)
         bombs.update()
@@ -709,10 +861,13 @@ def main():
         score.update(screen)
         cemys.update()
         cemys.draw(screen)
+        appearance.__update__(screen)
+        
         pg.display.update()
         tmr += 1
         clock.tick(50)
-
+        
+        
 
 if __name__ == "__main__":
     pg.init()
