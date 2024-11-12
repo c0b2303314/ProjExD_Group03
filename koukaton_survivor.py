@@ -264,7 +264,7 @@ class Bossbeam(pg.sprite.Sprite):
         self.vx, self.vy = boss.dire
         angle = math.degrees(math.atan2(-self.vy, self.vx))
         angle += angle0  # 追加の回転角度を適用
-        self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, 2.0)
+        self.image = pg.transform.rotozoom(pg.image.load(f"fig/bossbeam.png"), angle, 2.0)
         self.vx = math.cos(math.radians(angle))
         self.vy = -math.sin(math.radians(angle))
         self.rect = self.image.get_rect()
@@ -538,7 +538,7 @@ class Boss:
         self.image = pg.transform.rotozoom(pg.image.load(f"fig/fantasy_dragon.png"), 0, 0.7)
         self.rect = self.image.get_rect()
         self.rect.center = (WIDTH/2, 0)  # ボスの初期位置を設定
-        self.health = 300  # ボスの体力（必要に応じて調整）
+        self.health = 200  # ボスの体力（必要に応じて調整）
         self.appearing=True
         self.font = pg.font.Font(None, 50)  # 体力表示用のフォント
         self.defeated = False  # ボス撃破フラグ
@@ -558,7 +558,7 @@ class Boss:
         health_text = self.font.render(f"Boss HP: {self.health}", True, (255, 0, 0))
         screen.blit(health_text, (10, 10))
 
-        if self.health <= 1:
+        if self.health <= 0:
             self.health = 0
 
         # ボス撃破時の処理
@@ -714,6 +714,9 @@ def main():
         if tmr%100 == 0 and appearance.boss_appeared:
             boss_neo_beam = NeoBeam(appearance.boss, 3)  # ボスが3本のビームを発射
             boss_beams.add(boss_neo_beam.gen_beams())
+            if appearance.boss.health == 0:
+                for boss_beam in boss_beams:
+                    boss_beam.kill()
 
         # 通常の敵との衝突判定
         if pg.sprite.spritecollideany(bird, emys):
@@ -747,7 +750,7 @@ def main():
             screen.fill((0, 0, 0))  # 黒画面
             font = pg.font.Font(None, 50)  # fontの大きさ
             text = font.render("Select Skill - 1:Durian 2:Soccerball", True, (255, 255, 255))  # 書く文字と白色
-            screen.blit(text, ((WIDTH//4) - 75, HEIGHT//2))  # 描写位置
+            screen.blit(text, ((WIDTH//4) - 20, HEIGHT//2))  # 描写位置
             pg.display.update()
             continue  # これがないと下のアップデートが実行されてしまうため必須
 
@@ -793,7 +796,7 @@ def main():
             if bird.speed <= 20:  # こうかとんのスピードの最大値を設定
                 bird.speed *= 1.1 
             item_count += 1
-            if item_count % 2 == 0:  # ２回に一回、アイテムを獲得するとビームのスパンをあげる
+            if item_count % 2 == 0:  # 2回に一回、アイテムを獲得するとビームのスパンをあげる
                 beam_span += 1
             item.kill()  # 強化アイテムを削除する
 
@@ -834,7 +837,7 @@ def main():
                     else:  # 上下の衝突 (y方向の差が大きい)
                         ball.vy *= -1  # y方向の速度を反転
 
-                    if ball.rect.centerx > appearance.boss.rect.left and ball.rect.centerx < appearance.boss.rect.right and ball.rect.centery > appearance.boss.rect.top and ball.rect.centery < appearance.boss.rect.top:
+                    if ball.rect.centerx > appearance.boss.rect.left and ball.rect.centerx < appearance.boss.rect.right and ball.rect.centery > appearance.boss.rect.top and ball.rect.centery < appearance.boss.rect.bottom:
                         ball.rect.right = appearance.boss.rect.left - 50  #  ボールがボスにめり込んだ場合外に出す
                     appearance.boss.health -= 1  # ボールが当たるたびに体力を1減らす
                     
